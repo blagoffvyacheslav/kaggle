@@ -1,0 +1,6 @@
+*.pyc
+.idea/
+data/
+store/
+kaggle/
+.ipynb_checkpoints/
