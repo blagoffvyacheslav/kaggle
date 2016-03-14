@@ -1,3 +1,6 @@
+import re
+import sys
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -89,14 +92,14 @@ class DataProvider:
         self.dset(dset)[name] = self.store.load_or_create(name + '_' + dset, loader)
 
     def dfs(self, df='data'):
-        return [dset[df] for dset in self.dsets.values()]
+        return {dset: dfs[df] for dset, dfs in self.dsets.iteritems()}
 
     def to_category(self, cols, df='data'):
         for col in cols:
-            category_concat(col, self.dfs(df=df))
+            category_concat(col, self.dfs(df=df).values())
 
     def to_datetime(self, cols, df='data'):
-        for d in self.dfs(df=df):
+        for d in self.dfs(df=df).itervalues():
             for col in cols:
                 d[col] = pd.to_datetime(d[col])
 
@@ -113,3 +116,33 @@ def category_encode(df):
     for col in df:
         if df[col].dtype.name == 'category':
             df[col] = df[col].cat.codes
+
+
+def datetime_decompose(date, components=None):
+    if components is None:
+        components = ['year', 'month', 'week', 'weekday', 'day', 'hour', 'minute', 'time']
+
+    component_extractors = {
+        'time': lambda d: d.value / 10 ** 9
+    }
+
+    decomposed = {}
+    for component in components:
+        if component in component_extractors:
+            decomposed[component] = component_extractors[component](date)
+        else:
+            attr = getattr(date, component)
+            decomposed[component] = attr() if hasattr(attr, '__call__') else attr
+
+    return decomposed
+
+
+def datetime_decompose_series(date_series, components=None):
+    df = pd.DataFrame(index=date_series.index)
+    dates = date_series.apply(datetime_decompose, args=components)
+
+    for date_component in dates.iloc[0]:
+        df[date_component] = dates.apply(lambda date: date[date_component])
+
+    del dates
+    return df
