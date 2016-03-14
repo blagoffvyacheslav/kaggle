@@ -88,9 +88,6 @@ class DataProvider:
     def dset(self, dset):
         return self.dsets[dset]
 
-    def dset_apply_feature(self, dset, name, loader):
-        self.dset(dset)[name] = self.store.load_or_create(name + '_' + dset, loader)
-
     def dfs(self, df='data'):
         return {dset: dfs[df] for dset, dfs in self.dsets.iteritems()}
 
