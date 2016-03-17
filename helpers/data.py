@@ -1,6 +1,7 @@
 import re
 import sys
 import os
+import itertools
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -73,12 +74,18 @@ class DataProvider:
 
         return data
 
-    def extract(self, dset, dfs, encode_categories=True):
+    def extract(self, dset, dfs, encode_categories=True, drop_cols=None):
         data = []
         for df, cols in dfs:
             data.append(self.get(dset, df=df, col=cols))
 
         data = pd.concat(data, axis=1)
+
+        if drop_cols is not None:
+            to_drop = [col for col in drop_cols if col in data]
+
+            if len(to_drop) > 0:
+                data = data.drop(to_drop, axis=1)
 
         if encode_categories:
             category_encode(data)
@@ -103,7 +110,7 @@ class DataProvider:
 
 def category_concat(name, dfs):
     dfs = filter(lambda df: name in df, dfs)
-    values = pd.concat([df[name] for df in dfs])
+    values = pd.concat([df[name] for df in dfs], ignore_index=True)
     cats = skl.preprocessing.LabelBinarizer().fit(values).classes_
     for df in dfs:
         df[name] = df[name].astype('category', categories=cats)

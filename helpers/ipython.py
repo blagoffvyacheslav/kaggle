@@ -1,6 +1,7 @@
-import pandas as pd
+from data import pd
 from IPython.display import display
 from IPython.core.pylabtools import figsize
+from ipywidgets import FloatProgress
 
 
 def pd_display(df, max_columns=None):
