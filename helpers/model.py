@@ -6,7 +6,7 @@ class LogisticXGB(xgb.XGBClassifier):
     def _transform_y(self, y):
         return y
 
-    def set_eval(self, X_eval, y_eval, metric='mlogloss', early_stopping_rounds=50, verbose=10):
+    def set_eval(self, X_eval, y_eval, metric='logloss', early_stopping_rounds=50, verbose=10):
         self.eval_metric = metric
         self.eval_set = [(X_eval, self._transform_y(y_eval))]
         self.eval_verbose = verbose
@@ -27,6 +27,8 @@ class LogisticXGB(xgb.XGBClassifier):
     def fit(self, X, y):
         self.set_classes(y)
         xgb_options = self.get_xgb_params()
+        xgb_options['objective'] = 'binary:logistic'
+
         return self._run_booster(X, y, xgb_options)
 
     def _run_booster(self, X, y, xgb_options):
@@ -154,7 +156,7 @@ class TuneXGB:
             metric = 'auc' if model_class == LogisticXGB else 'mlogloss'
 
         self.metric = metric
-        self.metric_ascending = (metric == 'mlogloss')
+        self.metric_ascending = (metric != 'auc')
 
         self.learning_rate = learning_rate
         self.max_delta_step = max_delta_step
