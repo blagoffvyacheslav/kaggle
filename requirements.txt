@@ -1,0 +1,21 @@
+# jupyter
+ipython==4.1.2
+jupyter==1.0.0
+jupyter-client==4.2.2
+jupyter-console==4.1.1
+jupyter-core==4.1.0
+tornado==4.3
+-e git+https://github.com/ipython-contrib/IPython-notebook-extensions.git@7170b412e50f59568ee3e4f25d4ccac7b7753869#egg=Python_contrib_nbextensions
+
+# libs
+numpy==1.10.4
+scipy==0.17.0
+pandas==0.18.0
+scikit-learn==0.17.1
+scikit-image==0.12.3
+matplotlib==1.5.1
+seaborn==0.7.0
+xgboost==0.4a30
+
+# other
+joblib==0.9.4

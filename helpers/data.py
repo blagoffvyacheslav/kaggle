@@ -7,7 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import xgboost as xgb
 import sklearn as skl
+import seaborn as sns
 import sklearn.ensemble as skl_ensemble
+import sklearn.neighbors as skl_neighbors
+from joblib import Parallel, delayed
 
 
 plt.style.use('ggplot')
@@ -74,10 +77,20 @@ class DataProvider:
 
         return data
 
-    def extract(self, dset, dfs, encode_categories=True, drop_cols=None):
+    def extract(self, dset, dfs, encode_categories=True, drop_cols=None, scaler=None, scaler_ignore_bags=True, scaler_bags=None, ix=None):
         data = []
         for df, cols in dfs:
-            data.append(self.get(dset, df=df, col=cols))
+            d = self.get(dset, df=df, col=cols)
+            if type(d) == pd.sparse.frame.SparseDataFrame:
+                d = d.to_dense()
+
+            if ix is not None:
+                if hasattr(d, 'columns'):
+                    d = d.ix[ix, :]
+                else:
+                    d = d.ix[ix]
+
+            data.append(d)
 
         data = pd.concat(data, axis=1)
 
@@ -89,6 +102,17 @@ class DataProvider:
 
         if encode_categories:
             category_encode(data)
+
+        if scaler:
+            scale_columns = data.columns
+            if scaler_ignore_bags:
+                if scaler_bags is None:
+                    scaler_bags = get_bag_columns(data)
+
+                scale_columns = data.columns[~data.columns.isin(scaler_bags)]
+
+            if len(scale_columns) > 0:
+                data[scale_columns] = scaler.fit_transform(data[scale_columns]) if dset == 'train' else scaler.transform(data[scale_columns])
 
         return data
 
@@ -150,3 +174,17 @@ def datetime_decompose_series(date_series, components=None):
 
     del dates
     return df
+
+
+def get_bag_columns(X):
+    bag_columns = []
+    for col in X:
+        counts = X[col].value_counts().T
+        for val in [-1, 0 ,1]:
+            if val in counts:
+                counts = counts.drop([val])
+
+        if len(counts) == 0:
+            bag_columns.append(col)
+
+    return bag_columns

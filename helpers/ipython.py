@@ -1,4 +1,4 @@
-from data import pd
+from helpers.data import pd
 from IPython.display import display
 from IPython.core.pylabtools import figsize
 from ipywidgets import FloatProgress

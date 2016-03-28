@@ -1,5 +1,6 @@
-from data import np, pd, skl, xgb, os, sys, itertools
-from ipython import FloatProgress, display
+from helpers.data import np, pd, skl, xgb, os, sys, itertools
+from helpers.ipython import FloatProgress, display
+from joblib import Parallel, delayed
 
 
 class LogisticXGB(xgb.XGBClassifier):
@@ -108,43 +109,6 @@ class MultiClassXGB(LogisticXGB):
     def predict_proba(self, data, output_margin=False, ntree_limit=0):
         proba = super(MultiClassXGB, self).predict_proba(data, output_margin, ntree_limit)
         return np.split(proba, 2, axis=1)[1].T
-
-
-def get_model_proba(model, X, classes=None):
-    proba = pd.DataFrame(model.predict_proba(X), index=X.index, columns=model.classes_)
-
-    if classes is not None:
-        proba_cl = pd.DataFrame(0, index=X.index, columns=classes)
-        for cl in proba:
-            if cl in proba_cl:
-                proba_cl[cl] = proba[cl]
-
-        proba = proba_cl
-
-    return proba
-
-
-def imbalance_log_loss(model, X, y, classes=None):
-    if classes is None:
-        le = skl.preprocessing.LabelEncoder()
-        le.fit(y)
-        classes = le.classes_
-
-    proba = get_model_proba(model, X, classes)
-    return skl.metrics.log_loss(y, proba.values)
-
-
-def get_model_feature_scores(model, features, attr=None):
-    if isinstance(features, pd.DataFrame):
-        features = features.columns
-
-    if attr is None:
-        for a in ['feature_importances_', 'coef_']:
-            if hasattr(model, a):
-                attr = a
-                break
-
-    return pd.DataFrame({'val': getattr(model, attr)}, index=features).sort_values('val', ascending=False)
 
 
 class TuneXGB:
@@ -358,3 +322,60 @@ class TuneXGB:
     def get_cv_train_size(self):
         for train, test in self.cv:
             return len(train)
+
+
+def get_model_proba(model, X, classes=None):
+    proba = pd.DataFrame(model.predict_proba(X), index=X.index, columns=model.classes_)
+
+    if classes is not None:
+        proba_cl = pd.DataFrame(0, index=X.index, columns=classes)
+        for cl in proba:
+            if cl in proba_cl:
+                proba_cl[cl] = proba[cl]
+
+        proba = proba_cl
+
+    return proba
+
+
+def imbalance_log_loss(model, X, y, classes=None):
+    if classes is None:
+        le = skl.preprocessing.LabelEncoder()
+        le.fit(y)
+        classes = le.classes_
+
+    proba = get_model_proba(model, X, classes)
+    return skl.metrics.log_loss(y, proba.values)
+
+
+def get_model_feature_scores(model, features, attr=None):
+    if isinstance(features, pd.DataFrame):
+        features = features.columns
+
+    if attr is None:
+        for a in ['feature_importances_', 'coef_']:
+            if hasattr(model, a):
+                attr = a
+                break
+
+    return pd.DataFrame({'val': getattr(model, attr)}, index=features).sort_values('val', ascending=False)
+
+
+def model_train_cv_parallel(model, X, y, cv=None, proba=True, n_jobs=8):
+    if cv is None:
+        cv = skl.cross_validation.KFold(len(y), n_folds=16, shuffle=True, random_state=1234)
+
+    return pd.concat(Parallel(n_jobs=n_jobs, verbose=True)(delayed(model_train_cv)(fold, model, X, y, proba) for fold in cv))
+
+
+def model_train_cv(fold, model, X, y, proba):
+    model = skl.clone(model)
+
+    train, test = fold
+    X_train, X_test = X.iloc[train, :], X.iloc[test, :]
+    y_train, y_test = y.iloc[train], y.iloc[test]
+
+    model.fit(X_train, y_train)
+    predict = model.predict_proba(X_test)[:, 1] if proba else model.predict(X_test)
+
+    return pd.DataFrame({'predict': predict}, index=X_test.index)
