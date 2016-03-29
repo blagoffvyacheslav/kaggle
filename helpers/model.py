@@ -1,4 +1,4 @@
-from helpers.data import np, pd, skl, xgb, os, sys, itertools
+from helpers.data import np, pd, skl, xgb, os, sys, itertools, get_bag_columns
 from helpers.ipython import FloatProgress, display
 from joblib import Parallel, delayed
 
@@ -324,7 +324,7 @@ class TuneXGB:
             return len(train)
 
 
-def get_model_proba(model, X, classes=None):
+def model_get_proba(model, X, classes=None):
     proba = pd.DataFrame(model.predict_proba(X), index=X.index, columns=model.classes_)
 
     if classes is not None:
@@ -338,17 +338,17 @@ def get_model_proba(model, X, classes=None):
     return proba
 
 
-def imbalance_log_loss(model, X, y, classes=None):
+def log_loss_imbalance(model, X, y, classes=None):
     if classes is None:
         le = skl.preprocessing.LabelEncoder()
         le.fit(y)
         classes = le.classes_
 
-    proba = get_model_proba(model, X, classes)
+    proba = model_get_proba(model, X, classes)
     return skl.metrics.log_loss(y, proba.values)
 
 
-def get_model_feature_scores(model, features, cl=0):
+def model_get_feature_scores(model, features, cl=0):
     if isinstance(features, pd.DataFrame):
         features = features.columns
 
@@ -380,8 +380,18 @@ def model_train_cv(fold, model, X, y, proba):
     return pd.DataFrame({'predict': predict}, index=X_test.index)
 
 
-def model_lr_explore_l1(X, y, C=0.005):
-    model = skl.linear_model.LogisticRegression(C=C, penalty='l1', random_state=1234, n_jobs=4)
+def model_lr_explore_l1(X, y, C=0.005, scale=True):
+    if scale:
+        if scale == True:
+            bags = get_bag_columns(X)
+            scale_columns = list(X.columns[~X.columns.isin(bags)])
+        else:
+            scale_columns = list(scale)
+
+        if scale_columns:
+            X[scale_columns] = skl.preprocessing.StandardScaler().fit_transform(X[scale_columns])
+
+    model = skl.linear_model.LogisticRegression(C=C, penalty='l1', random_state=1234)
     model.fit(X, y)
-    scores = get_model_feature_scores(model, X)['val']
+    scores = model_get_feature_scores(model, X)['val']
     return scores[scores != 0]
