@@ -348,17 +348,16 @@ def imbalance_log_loss(model, X, y, classes=None):
     return skl.metrics.log_loss(y, proba.values)
 
 
-def get_model_feature_scores(model, features, attr=None):
+def get_model_feature_scores(model, features, cl=0):
     if isinstance(features, pd.DataFrame):
         features = features.columns
 
-    if attr is None:
-        for a in ['feature_importances_', 'coef_']:
-            if hasattr(model, a):
-                attr = a
-                break
+    if hasattr(model, 'coef_'):
+        importance = getattr(model, 'coef_')[cl]
+    elif hasattr(model, 'feature_importances_'):
+        importance = getattr(model, 'feature_importances_')
 
-    return pd.DataFrame({'val': getattr(model, attr)}, index=features).sort_values('val', ascending=False)
+    return pd.DataFrame({'val': importance}, index=features).sort_values('val', ascending=False)
 
 
 def model_train_cv_parallel(model, X, y, cv=None, proba=True, n_jobs=8):
@@ -379,3 +378,10 @@ def model_train_cv(fold, model, X, y, proba):
     predict = model.predict_proba(X_test)[:, 1] if proba else model.predict(X_test)
 
     return pd.DataFrame({'predict': predict}, index=X_test.index)
+
+
+def model_lr_explore_l1(X, y, C=0.005):
+    model = skl.linear_model.LogisticRegression(C=C, penalty='l1', random_state=1234, n_jobs=4)
+    model.fit(X, y)
+    scores = get_model_feature_scores(model, X)['val']
+    return scores[scores != 0]
