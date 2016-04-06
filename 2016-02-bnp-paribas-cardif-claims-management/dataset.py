@@ -85,10 +85,25 @@ def data_v6(data):
     data.get('test', 'models')['draft_ext'] = model.predict_proba(X_test)[:, 1] - 0.5
 
 
+def data_v7(data):
+    imputer = skl.preprocessing.Imputer()
+    scaler = skl.preprocessing.StandardScaler()
+
+    train = data.get('train', 'nums').copy()
+    train[train.columns] = imputer.fit_transform(train)
+    train[train.columns] = scaler.fit_transform(train)
+    data.dset('train')['scaled_nums'] = train
+
+    test = data.get('test', 'nums').copy()
+    test[test.columns] = imputer.transform(test)
+    test[test.columns] = scaler.transform(test)
+    data.dset('test')['scaled_nums'] = test
+
+
 data = DataProvider({
     'train': 'data/train.csv',
     'test': 'data/test.csv'
-}, [data_v1, data_v2, data_v3, data_v4, data_v5, data_v6])
+}, [data_v1, data_v2, data_v3, data_v4, data_v5, data_v6, data_v7])
 
 
 def kaggle_split(X, y):
